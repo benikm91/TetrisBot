@@ -1,4 +1,4 @@
-package gamebot.qlearning;
+package gamebot;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
