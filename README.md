@@ -1,5 +1,4 @@
-# TetrisBot
-<h1>Tetris bot with Q-Learning</h1>
+# TetrisBot with Q-Learning
 <p>
 Goal of this project is to develope a simple Tetris bot.
 As Tetris application we used a existing project: TODO LINK
