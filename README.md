@@ -29,7 +29,7 @@ While playing the bot chops his current play field into pieces of width 4 and ch
 From the found actions the bot picks the best he knows.
 
 With this tricks and a possible field states of 7 ^ 4 we get a total state space of around:<br>
-7 ^ 4 * 7 (current piece) * 4 (final position) * 4 (final rotation) = 268912<br>
+7 ^ 4 * 7 (current piece) * 4 (final position) * 4 (final rotation) ~= 268912<br>
 <br>
 which is a 1/ 99299699750 of the original state space. 
 </p>
