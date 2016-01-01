@@ -390,15 +390,15 @@ public class Tetris extends JPanel {
     /**
      * @return The y coordinate of the lowest empty square counting from bottom to top.
      */
-    protected int getCurrentMinDepth() {
-        return IntStream.rangeClosed(1, 10).map(this::getDepthAt).min().getAsInt();
+    protected int getCurrentMinHeight() {
+        return IntStream.rangeClosed(1, 10).map(this::getHeightAt).min().getAsInt();
     }
 
     /**
      * @param fieldIndex The index in the play field. 0 represents the first column from the play field.
      * @return The y coordinate of the first empty square in the column fieldIndex counting from bottom to top.
     */
-    protected int getDepthAt(int fieldIndex) {
+    protected int getHeightAt(int fieldIndex) {
         assert 0 <= fieldIndex && fieldIndex <= 10 : "field index is out of range";
         int wellIndex = fieldIndex + 1; // ignore left wall.
         for (int i = 0; i < height; i++) {
@@ -409,11 +409,11 @@ public class Tetris extends JPanel {
 
     /**
      * @param fieldIndex The x coordinate on the play field.
-     * @param currentMinDepth The y coordinate of the lowest empty square on the play field.
+     * @param currentMinHeight The y coordinate of the lowest empty square on the play field.
      * @return The relative y coordinate of the first empty square in the column fieldIndex counting from bottom to top.
      */
-    protected int getRelativeDepth(int fieldIndex, int currentMinDepth) {
-        return getDepthAt(fieldIndex) - currentMinDepth;
+    protected int getRelativeHeight(int fieldIndex, int currentMinHeight) {
+        return getHeightAt(fieldIndex) - currentMinHeight;
     }
 
     /**
@@ -421,14 +421,14 @@ public class Tetris extends JPanel {
      */
     public TetrisState[] getCurrentStates() {
         TetrisState[] states = new TetrisState[7];
-        int minDepth = getCurrentMinDepth();
-        System.out.println(minDepth);
+        int minHeight = getCurrentMinHeight();
+        System.out.println(minHeight);
         for (int i = 0; i < states.length; i++) {
             states[i] = new TetrisState(
-                            getRelativeDepth(i, minDepth),
-                            getRelativeDepth(i + 1, minDepth),
-                            getRelativeDepth(i + 2, minDepth),
-                            getRelativeDepth(i + 3, minDepth),
+                            getRelativeHeight(i, minHeight),
+                            getRelativeHeight(i + 1, minHeight),
+                            getRelativeHeight(i + 2, minHeight),
+                            getRelativeHeight(i + 3, minHeight),
                             this.currentPiece,
                             i);
         }
