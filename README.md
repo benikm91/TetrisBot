@@ -1,7 +1,7 @@
 # TetrisBot with Q-Learning
 <p>
-Goal of this project is to develope a simple Tetris bot.
-As Tetris application we used a existing project: TODO LINK
+Goal of this project is to develope a simple Tetris bot.<br>
+As Tetris application we used a existing project: TODO LINK<br>
 The learning is done with the Q-learning technique.
 </p>
 <h2>State</h2>
