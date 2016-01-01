@@ -14,11 +14,13 @@ A Tetris state has following parts:
 <li>The final rotation of the current piece (before letting it fall).
 </ol>
 </p>
-<h2>Problem with State space</h2>
+<h2>State space</h2>
+<h3>Problem: Size</h3>
 <p>
 With the above defined state we get a total state space of around:<br>
 25 ^ 10 (field states) * 7 (current piece) * 10 (final position) * 4 (final rotation) ~= 2.6e+16<br>
 Which is way to high for our computers to handle! - So we have to replace our missing computer power with brain power :).<br>
+<h3>Solution</h3>
 We use two little tricks:
 <ol>
 <li>We reduce the max depth we are looking at from 25 down to 7. This will result in 7 ^ 10 possible field states.
