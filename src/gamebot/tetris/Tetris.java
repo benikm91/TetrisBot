@@ -1,4 +1,4 @@
-package gamebot;
+package gamebot.tetris;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -81,21 +81,23 @@ public class Tetris extends JPanel {
     };
 
     private final static Color EMPTY_COLOR = Color.BLACK;
+    private final int squareSize = 20;
+    private final int squareSizeWithBorder = squareSize + 1;
+    private final int width = 12;
     private final int height = 24;
+    private final Color[][] well;
 
     private Point pieceOrigin;
     private int currentPiece;
     private int rotation;
-    private ArrayList<Integer> nextPieces = new ArrayList<Integer>();
+    private final ArrayList<Integer> nextPieces = new ArrayList<Integer>();
 
     private long score;
-    private Color[][] well;
     private boolean paused = false;
 
-    // Creates a border around the well and initializes the dropping piece
-    private void init() {
-        well = new Color[12][height];
-        for (int i = 0; i < 12; i++) {
+    public Tetris() {
+        well = new Color[width][height];
+        for (int i = 0; i < width; i++) {
             for (int j = 0; j < height - 1; j++) {
                 if (i == 0 || i == 11 || j == 22) {
                     well[i][j] = Color.GRAY;
@@ -117,6 +119,10 @@ public class Tetris extends JPanel {
         }
         currentPiece = nextPieces.get(0);
         nextPieces.remove(0);
+        // if piece collides => game over
+        if (this.collidesAt(pieceOrigin.x, pieceOrigin.y, rotation)) {
+            gameOver();
+        }
     }
 
     // Collision test for the dropping piece
@@ -140,6 +146,10 @@ public class Tetris extends JPanel {
             rotation = newRotation;
         }
         repaint();
+    }
+
+    public void gameOver() {
+        throw new RuntimeException("GAMEOVER : TODO BETTER");
     }
 
     // Move the piece left or right
@@ -228,9 +238,9 @@ public class Tetris extends JPanel {
     private void drawPiece(Graphics g) {
         g.setColor(tetraminoColors[currentPiece]);
         for (Point p : Tetraminos[currentPiece][rotation]) {
-            g.fillRect((p.x + pieceOrigin.x) * 26,
-                    (p.y + pieceOrigin.y) * 26,
-                    25, 25);
+            g.fillRect((p.x + pieceOrigin.x) * squareSizeWithBorder,
+                    (p.y + pieceOrigin.y) * squareSizeWithBorder,
+                    squareSize, squareSize);
         }
     }
 
@@ -238,11 +248,11 @@ public class Tetris extends JPanel {
     public void paintComponent(Graphics g)
     {
         // Paint the well
-        g.fillRect(0, 0, 26*12, 26*23);
-        for (int i = 0; i < 12; i++) {
+        g.fillRect(0, 0, squareSizeWithBorder * width, squareSizeWithBorder * height);
+        for (int i = 0; i < width; i++) {
             for (int j = 0; j < height - 1; j++) {
                 g.setColor(well[i][j]);
-                g.fillRect(26*i, 26*j, 25, 25);
+                g.fillRect(squareSizeWithBorder * i, squareSizeWithBorder * j, squareSize, squareSize);
             }
         }
 
@@ -255,13 +265,13 @@ public class Tetris extends JPanel {
     }
 
     public static void main(String[] args) {
-        JFrame f = new JFrame("Tetris");
+        final Tetris game = new Tetris();
+        final JFrame f = new JFrame("Tetris");
+
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        f.setSize(12*26+10, 26*23+25);
+        f.setSize(game.getFullWidth(), game.getFullHeight());
         f.setVisible(true);
 
-        final Tetris game = new Tetris();
-        game.init();
         f.add(game);
 
         // Keyboard controls
@@ -300,6 +310,7 @@ public class Tetris extends JPanel {
                         break;
                     case KeyEvent.VK_P:
                         game.paused = !game.paused;
+                        System.out.println(game.getNumOfBlocked());
                         System.out.println(Arrays.toString(game.getCurrentStates()));
                         break;
                 }
@@ -320,6 +331,14 @@ public class Tetris extends JPanel {
                 }
             }
         }.start();
+    }
+
+    public int getFullWidth() {
+        return width * squareSizeWithBorder + 10;
+    }
+
+    public int getFullHeight() {
+        return height * squareSizeWithBorder + 25;
     }
 
     /**
@@ -395,25 +414,20 @@ public class Tetris extends JPanel {
     }
 
     /**
-     * @param fieldIndex The index in the play field. 0 represents the first column from the play field.
-     * @return The y coordinate of the first empty square in the column fieldIndex counting from bottom to top.
+     * @param columnIndex The index in the play field. 0 represents the first column from the play field.
+     * @return The y coordinate of the first empty square in the column columnIndex counting from bottom to top.
     */
-    protected int getHeightAt(int fieldIndex) {
-        assert 0 <= fieldIndex && fieldIndex <= 10 : "field index is out of range";
-        int wellIndex = fieldIndex + 1; // ignore left wall.
-        for (int i = 0; i < height; i++) {
-            if (well[wellIndex][height - 1 - i] == EMPTY_COLOR) return i;
-        }
-        return height;
+    protected int getHeightAt(int columnIndex) {
+        return getRowIndexOfFirstEmptyField(columnIndex);
     }
 
     /**
-     * @param fieldIndex The x coordinate on the play field.
+     * @param columnIndex The x coordinate on the play field.
      * @param currentMinHeight The y coordinate of the lowest empty square on the play field.
-     * @return The relative y coordinate of the first empty square in the column fieldIndex counting from bottom to top.
+     * @return The relative y coordinate of the first empty square in the column columnIndex counting from bottom to top.
      */
-    protected int getRelativeHeight(int fieldIndex, int currentMinHeight) {
-        return getHeightAt(fieldIndex) - currentMinHeight;
+    protected int getRelativeHeight(int columnIndex, int currentMinHeight) {
+        return getHeightAt(columnIndex) - currentMinHeight;
     }
 
     /**
@@ -422,7 +436,6 @@ public class Tetris extends JPanel {
     public TetrisState[] getCurrentStates() {
         TetrisState[] states = new TetrisState[7];
         int minHeight = getCurrentMinHeight();
-        System.out.println(minHeight);
         for (int i = 0; i < states.length; i++) {
             states[i] = new TetrisState(
                             getRelativeHeight(i, minHeight),
@@ -433,5 +446,42 @@ public class Tetris extends JPanel {
                             i);
         }
         return states;
+    }
+
+    /**
+     * @param columnIndex Column to search in.
+     * @return Row index of first empty field from below to top. If non found return field height.
+     */
+    private int getRowIndexOfFirstEmptyField(int columnIndex) {
+        assert 0 <= columnIndex && columnIndex <= 10 : "field index is out of range";
+        int wellIndex = columnIndex + 1; // ignore left wall.
+        for (int i = 1; i < height; i++) {
+            if (well[wellIndex][height - 1 - i] == EMPTY_COLOR) return i;
+        }
+        return height;
+    }
+
+    /**
+     * @return Number of empty squares that have a filled square above and below itself.
+     */
+    public int getNumOfBlocked() {
+        int result = 0;
+        for (int x = 1; x < width; x++) {
+            int emptyFields = 0;
+            boolean lastEmpty = false;
+            for (int y = 1; y < height - 1; y++) {
+                if (well[x][height - y] == EMPTY_COLOR) {
+                    emptyFields++;
+                    lastEmpty = true;
+                } else {
+                    if (lastEmpty) {
+                        result += emptyFields;
+                        emptyFields = 0;
+                    }
+                    lastEmpty = false;
+                }
+            }
+        }
+        return result;
     }
 }

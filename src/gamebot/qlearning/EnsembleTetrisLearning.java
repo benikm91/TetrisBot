@@ -1,6 +1,6 @@
 package gamebot.qlearning;
 
-import gamebot.TetrisState;
+import gamebot.tetris.TetrisState;
 
 /**
  * Created by P on 01.01.2016.
