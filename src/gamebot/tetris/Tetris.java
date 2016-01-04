@@ -1,11 +1,11 @@
 package gamebot.tetris;
 
+import gamebot.qlearning.QTetrisLearner;
+
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.stream.IntStream;
 
 import javax.swing.JFrame;
@@ -16,87 +16,67 @@ import javax.swing.JPanel;
  */
 public class Tetris extends JPanel {
 
+    private long highScore = 0;
+
+    private long wait = 0;
+
+    private boolean endGame = false;
+
     private static final long serialVersionUID = -8715353373678321308L;
 
-    private final Point[][][] Tetraminos = {
-            // I-Piece
-            {
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(3, 1) },
-                    { new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(1, 3) },
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(3, 1) },
-                    { new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(1, 3) }
-            },
+    /** Color which represents an empty field. */
+    private static final Color EMPTY_COLOR = Color.BLACK;
 
-            // J-Piece
-            {
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(2, 0) },
-                    { new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(2, 2) },
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(0, 2) },
-                    { new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(0, 0) }
-            },
-
-            // L-Piece
-            {
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(2, 2) },
-                    { new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(0, 2) },
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(0, 0) },
-                    { new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(2, 0) }
-            },
-
-            // O-Piece
-            {
-                    { new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1) },
-                    { new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1) },
-                    { new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1) },
-                    { new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1) }
-            },
-
-            // S-Piece
-            {
-                    { new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1) },
-                    { new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2) },
-                    { new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1) },
-                    { new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2) }
-            },
-
-            // T-Piece
-            {
-                    { new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1) },
-                    { new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2) },
-                    { new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(1, 2) },
-                    { new Point(1, 0), new Point(1, 1), new Point(2, 1), new Point(1, 2) }
-            },
-
-            // Z-Piece
-            {
-                    { new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1) },
-                    { new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2) },
-                    { new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1) },
-                    { new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2) }
-            }
-    };
-
-    private final Color[] tetraminoColors = {
-            Color.cyan, Color.blue, Color.orange, Color.yellow, Color.green, Color.pink, Color.red
-    };
-
-    private final static Color EMPTY_COLOR = Color.BLACK;
+    /** Size of a Tetris square. */
     private final int squareSize = 20;
+    /** Size of square with its border. */
     private final int squareSizeWithBorder = squareSize + 1;
+
+    /** Well width. */
     private final int width = 12;
+    /** Well height. */
     private final int height = 24;
-    private final Color[][] well;
+    /** Well is the play field and the walls as well as the ground. */
+    private Color[][] well;
 
+    /** Location in {@link #well} of {@link #currentPiece}. */
     private Point pieceOrigin;
-    private int currentPiece;
+    /** Current piece falling down. */
+    private Piece currentPiece;
+    /** Rotation of {@link #currentPiece}. */
     private int rotation;
-    private final ArrayList<Integer> nextPieces = new ArrayList<Integer>();
 
+    /** Current game score. */
     private long score;
+    /** True => game is paused. False otherwise. */
     private boolean paused = false;
 
+    private Player bot;
+
     public Tetris() {
-        well = new Color[width][height];
+        this(null);
+    }
+
+    /**
+     * Init well and first piece.
+     */
+    public Tetris(final Player bot) {
+        this.bot = bot;
+        restartGame();
+    }
+
+    public synchronized void restartGame() {
+        initWell();
+        score = 0;
+        rotation = 0;
+        currentPiece = null;
+        pieceOrigin = null;
+        paused = false;
+        newPiece();
+    }
+
+    public void initWell() {
+        this.well = new Color[width][height];
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height - 1; j++) {
                 if (i == 0 || i == 11 || j == 22) {
@@ -106,67 +86,78 @@ public class Tetris extends JPanel {
                 }
             }
         }
-        newPiece();
     }
 
-    // Put a new, random piece into the dropping position
-    public void newPiece() {
+    /**
+     * Put a new, random piece into the dropping position
+     */
+    public final void newPiece() {
         pieceOrigin = new Point(5, 2);
         rotation = 0;
-        if (nextPieces.isEmpty()) {
-            Collections.addAll(nextPieces, 0, 1, 2, 3, 4, 5, 6);
-            Collections.shuffle(nextPieces);
-        }
-        currentPiece = nextPieces.get(0);
-        nextPieces.remove(0);
+        currentPiece = Piece.getRandom();
         // if piece collides => game over
         if (this.collidesAt(pieceOrigin.x, pieceOrigin.y, rotation)) {
             gameOver();
         }
     }
 
-    // Collision test for the dropping piece
+    /**
+     * Collision test for the dropping piece
+     * @param x Position to check
+     * @param y Position to check
+     * @param rotation Rotation of current piece. TODO why not use this.rotation?
+     * @return True => If currentPiece collides with well. False otherwise.
+     */
     private boolean collidesAt(int x, int y, int rotation) {
-        for (Point p : Tetraminos[currentPiece][rotation]) {
-            if (well[p.x + x][p.y + y] != EMPTY_COLOR) {
-                return true;
-            }
+        assert x >= 0;
+        assert y >= 0;
+        for (Point p : currentPiece.getRotation(rotation)) {
+             if (well[p.x + x][p.y + y] != EMPTY_COLOR) {
+                  return true;
+             }
         }
         return false;
     }
 
-    // Rotate the piece clockwise or counterclockwise
-    public void rotate(int i) {
+    /**
+     * Rotate the currentPiece, if it doesn't collide with well afterwards.
+     * @param i How many times to rotate. Clockwise (positiv) or counterclockwise (negativ).
+       */
+    public final void rotate(final int i) {
         if (paused) return;
-        int newRotation = (rotation + i) % 4;
+         int newRotation = (rotation + i) % 4;
         if (newRotation < 0) {
-            newRotation = 3;
-        }
-        if (!collidesAt(pieceOrigin.x, pieceOrigin.y, newRotation)) {
+               newRotation = 3;
+         }
+         if (!collidesAt(pieceOrigin.x, pieceOrigin.y, newRotation)) {
             rotation = newRotation;
         }
-        repaint();
-    }
+         repaint();
+     }
 
     public void gameOver() {
-        throw new RuntimeException("GAMEOVER : TODO BETTER");
-    }
+        if (highScore < score) {
+            highScore = score;
+              System.out.println( "New Highscore: " + score);
+        }
+        if (this.bot != null) bot.gameOver();
+        restartGame();
+     }
 
-    // Move the piece left or right
-    public void move(int i) {
+    // Mo ve the piece left or right
+    public synchronized final void move(final int i) {
         if (paused) return;
         if (!collidesAt(pieceOrigin.x + i, pieceOrigin.y, rotation)) {
-            pieceOrigin.x += i;
+                 pieceOrigin.x += i;
         }
-        repaint();
+        repaint ();
     }
 
     /**
      * Drops the piece one line or fixes it to the well if it can't drop
      * @return True if piece hit something, false otherwise.
      */
-    public boolean dropDown() {
-        if (paused) return false;
+    public synchronized final boolean dropDown() {
         boolean hitSomething;
         if (!collidesAt(pieceOrigin.x, pieceOrigin.y + 1, rotation)) {
             pieceOrigin.y += 1;
@@ -179,27 +170,35 @@ public class Tetris extends JPanel {
         return hitSomething;
     }
 
-    // Make the dropping piece part of the well, so it is available for
-    // collision detection.
-    public void fixToWell() {
-        for (Point p : Tetraminos[currentPiece][rotation]) {
-            well[pieceOrigin.x + p.x][pieceOrigin.y + p.y] = tetraminoColors[currentPiece];
+    /**
+     * Make the dropping piece part of the well, so it is available for
+     * collision detection.
+     */
+    public final void fixToWell() {
+        for (Point p : currentPiece.getRotation(rotation)) {
+            well[pieceOrigin.x + p.x][pieceOrigin.y + p.y] = currentPiece.color;
         }
         clearRows();
         newPiece();
     }
 
-    public void deleteRow(int row) {
-        for (int j = row-1; j > 0; j--) {
+    /**
+     * Delete row and move all above rows down.
+     * @param row Row to delete.
+     */
+    public final void deleteRow(final int row) {
+        for (int j = row - 1; j > 0; j--) {
             for (int i = 1; i < 11; i++) {
                 well[i][j+1] = well[i][j];
             }
         }
     }
 
-    // Clear completed rows from the field and award score according to
-    // the number of simultaneously cleared rows.
-    public void clearRows() {
+    /**
+     * Clear completed rows from the field and award score according to
+     * the number of simultaneously cleared rows.
+     */
+    public final void clearRows() {
         boolean gap;
         int numClears = 0;
 
@@ -234,21 +233,27 @@ public class Tetris extends JPanel {
         }
     }
 
-    // Draw the falling piece
-    private void drawPiece(Graphics g) {
-        g.setColor(tetraminoColors[currentPiece]);
-        for (Point p : Tetraminos[currentPiece][rotation]) {
+    /**
+     * Draw the falling piece.
+     * @param g Graphics to draw.
+     */
+    private void drawPiece(final Graphics g) {
+        g.setColor(currentPiece.color);
+        for (Point p : currentPiece.getRotation(rotation)) {
             g.fillRect((p.x + pieceOrigin.x) * squareSizeWithBorder,
                     (p.y + pieceOrigin.y) * squareSizeWithBorder,
                     squareSize, squareSize);
         }
+        g.setColor(Color.red);
+        g.fillRect((pieceOrigin.x) * squareSizeWithBorder,
+                (pieceOrigin.y) * squareSizeWithBorder,
+                squareSize, squareSize);
     }
 
     @Override
-    public void paintComponent(Graphics g)
-    {
+    public synchronized void paintComponent(final Graphics g) {
         // Paint the well
-        g.fillRect(0, 0, squareSizeWithBorder * width, squareSizeWithBorder * height);
+        g.fillRect(0,  0, squareSizeWithBorder * width, squareSizeWithBorder * height);
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height - 1; j++) {
                 g.setColor(well[i][j]);
@@ -264,8 +269,12 @@ public class Tetris extends JPanel {
         drawPiece(g);
     }
 
-    public static void main(String[] args) {
-        final Tetris game = new Tetris();
+    /**
+     * Main.
+     * @param args Main args.
+     */
+    public static void main(final String[] args) throws InterruptedException {
+        final Tetris game = new Tetris(new BotLearningPlayer(new QTetrisLearner()));
         final JFrame f = new JFrame("Tetris");
 
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -276,11 +285,30 @@ public class Tetris extends JPanel {
 
         // Keyboard controls
         f.addKeyListener(new KeyListener() {
-            public void keyTyped(KeyEvent e) {
+            public void keyTyped(final KeyEvent e) {
             }
 
-            public void keyPressed(KeyEvent e) {
+            public void keyPressed(final KeyEvent e) {
                 switch (e.getKeyCode()) {
+                    case KeyEvent.VK_N:
+                        game.wait -= 1000;
+                        break;
+                    case KeyEvent.VK_M:
+                        game.wait += 1000;
+                        break;
+                    case KeyEvent.VK_R:
+                        game.wait = 0;
+                        break;
+                    case KeyEvent.VK_Q:
+                        game.bot.changeRandomness(-0.1f);
+                        break;
+                    case KeyEvent.VK_W:
+                        game.bot.changeRandomness(+0.1f);
+                        break;
+                    case KeyEvent.VK_S:
+                        game.bot.endGame();
+                        game.endGame = true;
+                        break;
                     case KeyEvent.VK_UP:
                         game.rotate(-1);
                         break;
@@ -306,7 +334,7 @@ public class Tetris extends JPanel {
                     case KeyEvent.VK_7:
                     case KeyEvent.VK_8:
                     case KeyEvent.VK_9:
-                        game.moveAndRotatePiece(e.getKeyCode() - KeyEvent.VK_0, e.getKeyCode() - KeyEvent.VK_0);
+                        game.requestMoveAndRotatePiece(e.getKeyCode() - KeyEvent.VK_0, e.getKeyCode() - KeyEvent.VK_0);
                         break;
                     case KeyEvent.VK_P:
                         game.paused = !game.paused;
@@ -316,14 +344,14 @@ public class Tetris extends JPanel {
                 }
             }
 
-            public void keyReleased(KeyEvent e) {
+            public void keyReleased(final KeyEvent e) {
             }
         });
 
         // Make the falling piece drop every second
         new Thread() {
             @Override public void run() {
-                while (true) {
+                while (!game.endGame) {
                     try {
                         Thread.sleep(1000);
                         game.dropDown();
@@ -331,13 +359,28 @@ public class Tetris extends JPanel {
                 }
             }
         }.start();
+
+        while (!game.endGame) {
+            if (game.bot != null) {
+                if (game.wait > 0) Thread.sleep((long) game.wait);
+                game.bot.doAction(game, game.getCurrentStates());
+            }
+        }
+
     }
 
+    /**
+     * @return Full width in pixel
+     */
     public int getFullWidth() {
         return width * squareSizeWithBorder + 10;
     }
 
-    public int getFullHeight() {
+    /**
+     *
+     * @return Full height in pixel
+     */
+    public final int getFullHeight() {
         return height * squareSizeWithBorder + 25;
     }
 
@@ -351,7 +394,7 @@ public class Tetris extends JPanel {
      * @param newX {@link #requestMovePiece(int)}
      * @param newRotation {@link #requestRotatePiece(int)}
      */
-    public void moveAndRotatePiece(int newX, int newRotation) {
+    public final void requestMoveAndRotatePiece(int newX, int newRotation) {
         requestMovePiece(newX);
         requestRotatePiece(newRotation);
         requestDropPiece();
@@ -360,14 +403,9 @@ public class Tetris extends JPanel {
     /**
      * Simulate a drop piece action.
      */
-    public void requestDropPiece() {
-        try {
-            Robot robot = new Robot();
-            robot.keyPress(KeyEvent.VK_SPACE);
-            robot.keyRelease(KeyEvent.VK_SPACE);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public final void requestDropPiece() {
+        while (!this.dropDown());
+        this.score += 1;
     }
 
     /**
@@ -375,16 +413,10 @@ public class Tetris extends JPanel {
      * @param newX Desired x coordinate.
      */
     public void requestMovePiece(int newX) {
-        try {
-            Robot robot = new Robot();
-            int fieldsToGo = Math.abs(newX - this.pieceOrigin.x);
-            int keyDirection = (newX > this.pieceOrigin.x) ? KeyEvent.VK_RIGHT : KeyEvent.VK_LEFT;
-            for (int i = 0; i < fieldsToGo; i++) {
-                robot.keyPress(keyDirection);
-                robot.keyRelease(keyDirection);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        int fieldsToGo = Math.abs(newX - this.pieceOrigin.x);
+        int dir = (newX > this.pieceOrigin.x) ? +1 : -1;
+        for (int i = 0; i < fieldsToGo; i++) {
+            this.move(dir);
         }
     }
 
@@ -392,24 +424,18 @@ public class Tetris extends JPanel {
      * Simulate as many key presses as needed to reach desired rotation.
      * @param newRotation Desired rotation.
      */
-    public void requestRotatePiece(int newRotation) {
-        try {
-            Robot robot = new Robot();
-            int fieldsToGo = Math.abs(newRotation - this.rotation);
-            int keyDirection = (newRotation > this.rotation) ? KeyEvent.VK_DOWN : KeyEvent.VK_UP;
-            for (int i = 0; i < fieldsToGo; i++) {
-                robot.keyPress(keyDirection);
-                robot.keyRelease(keyDirection);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    public final void requestRotatePiece(final int newRotation) {
+        int fieldsToGo = Math.abs(newRotation - this.rotation);
+        int dir = (newRotation > this.rotation) ? +1 : -1;
+        for (int i = 0; i < fieldsToGo; i++) {
+            this.rotate(dir);
         }
     }
 
     /**
      * @return The y coordinate of the lowest empty square counting from bottom to top.
      */
-    protected int getCurrentMinHeight() {
+    private int getCurrentMinHeight() {
         return IntStream.rangeClosed(1, 10).map(this::getHeightAt).min().getAsInt();
     }
 
@@ -417,8 +443,8 @@ public class Tetris extends JPanel {
      * @param columnIndex The index in the play field. 0 represents the first column from the play field.
      * @return The y coordinate of the first empty square in the column columnIndex counting from bottom to top.
     */
-    protected int getHeightAt(int columnIndex) {
-        return getRowIndexOfFirstEmptyField(columnIndex);
+    private int getHeightAt(int columnIndex) {
+        return getRowIndexOfLastColoredField(columnIndex) + 1;
     }
 
     /**
@@ -426,37 +452,39 @@ public class Tetris extends JPanel {
      * @param currentMinHeight The y coordinate of the lowest empty square on the play field.
      * @return The relative y coordinate of the first empty square in the column columnIndex counting from bottom to top.
      */
-    protected int getRelativeHeight(int columnIndex, int currentMinHeight) {
+    private int getRelativeHeight(int columnIndex, int currentMinHeight) {
         return getHeightAt(columnIndex) - currentMinHeight;
     }
 
     /**
      * @return All states.
      */
-    public TetrisState[] getCurrentStates() {
+    public final TetrisState[] getCurrentStates() {
         TetrisState[] states = new TetrisState[7];
         int minHeight = getCurrentMinHeight();
         for (int i = 0; i < states.length; i++) {
             states[i] = new TetrisState(
+                            this.score,
+                            i,
+                            this.currentPiece.ordinal(),
+                            this.getNumOfBlocked(),
                             getRelativeHeight(i, minHeight),
                             getRelativeHeight(i + 1, minHeight),
                             getRelativeHeight(i + 2, minHeight),
-                            getRelativeHeight(i + 3, minHeight),
-                            this.currentPiece,
-                            i);
+                            getRelativeHeight(i + 3, minHeight));
         }
         return states;
     }
 
     /**
      * @param columnIndex Column to search in.
-     * @return Row index of first empty field from below to top. If non found return field height.
+     * @return .
      */
-    private int getRowIndexOfFirstEmptyField(int columnIndex) {
-        assert 0 <= columnIndex && columnIndex <= 10 : "field index is out of range";
+    private int getRowIndexOfLastColoredField(final int columnIndex) {
+        assert 0 <= columnIndex && columnIndex <= width - 2 : "columnIndex is out of range of play field.";
         int wellIndex = columnIndex + 1; // ignore left wall.
-        for (int i = 1; i < height; i++) {
-            if (well[wellIndex][height - 1 - i] == EMPTY_COLOR) return i;
+        for (int i = 0; i < height; i++) {
+            if (well[wellIndex][i] != EMPTY_COLOR) return height - i;
         }
         return height;
     }
@@ -464,7 +492,7 @@ public class Tetris extends JPanel {
     /**
      * @return Number of empty squares that have a filled square above and below itself.
      */
-    public int getNumOfBlocked() {
+    public final int getNumOfBlocked() {
         int result = 0;
         for (int x = 1; x < width; x++) {
             int emptyFields = 0;
